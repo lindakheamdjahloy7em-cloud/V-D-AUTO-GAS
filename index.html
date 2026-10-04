@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="km">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b3b72">
+<title>V-D AUTO GAS V4</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans Khmer",Arial,sans-serif;background:#f4f7fb;color:#172033}
+header{position:sticky;top:0;z-index:5;background:#0b3b72;color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-weight:800;font-size:19px}.sub{font-size:11px;opacity:.8}
+main{max-width:1100px;margin:auto;padding:16px 16px 90px}.page{display:none}.page.active{display:block}
+h2{margin:6px 0 14px;font-size:22px}.muted{color:#697386;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 10px #12213a0d;border:1px solid #e7ebf1}.metric b{font-size:22px;display:block;margin-top:5px}.metric small{color:#667085}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.btn{border:0;border-radius:9px;padding:10px 14px;background:#0b66e8;color:#fff;font-weight:650;cursor:pointer}.btn.secondary{background:#e8eef7;color:#17365f}.btn.danger{background:#e5484d}.btn.green{background:#16a36a}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}.tablewrap{overflow:auto}.tablewrap table{min-width:700px}th,td{padding:10px;border-bottom:1px solid #edf0f4;text-align:left;font-size:13px}th{background:#f7f9fc}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.field label{font-size:12px;color:#667085;display:block;margin-bottom:4px}.field input,.field select,.field textarea{width:100%;padding:10px;border:1px solid #d7dce5;border-radius:9px;background:#fff}.field textarea{min-height:80px}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;justify-content:center;z-index:20}.modal.show{display:flex}.sheet{background:#fff;width:min(760px,100%);max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}.sheethead{display:flex;justify-content:space-between;align-items:center}
+.badge{display:inline-block;padding:4px 8px;border-radius:99px;background:#e9f2ff;color:#1769d1;font-size:11px}.stocklow{background:#fff0f0;color:#d62828}
+.search{width:100%;padding:11px;border:1px solid #d7dce5;border-radius:10px;margin:5px 0 12px}
+.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #edf0f4}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f4f7fb}.loginbox{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 8px 35px #12213a18}.loginbox h1{color:#0b3b72;margin:0 0 5px}.loginbox .field{margin:12px 0}.err{background:#fff0f0;color:#b42318;border-radius:9px;padding:10px;margin:10px 0;display:none;font-size:13px}
+.userbar{font-size:12px;display:flex;align-items:center;gap:8px}.logout{padding:7px 10px;border-radius:8px;border:1px solid #ffffff55;background:#ffffff18;color:#fff}
+.invoice{max-width:760px;margin:auto}.total{font-size:20px;font-weight:800;border-top:2px solid #172033}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}main{padding:12px 12px 90px}.card{padding:12px}.userbar span{display:none}}
+</style>
+</head>
+<body>
+<div id="loginView" class="login">
+  <div class="loginbox">
+    <h1>V-D AUTO GAS</h1><div class="muted">Workshop Management • Cloud V4</div>
+    <div id="loginErr" class="err"></div>
+    <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="login()">ចូលប្រើ App</button>
+  </div>
+</div>
+
+<div id="appView" style="display:none">
+<header>
+ <div><div class="logo">V-D AUTO GAS</div><div class="sub">Workshop Management • Cloud V4</div></div>
+ <div class="userbar"><span id="userEmail"></span><button class="logout" onclick="logout()">ចេញ</button></div>
+</header>
+<main>
+<section id="dashboard" class="page active">
+<h2>Dashboard</h2>
+<div class="grid">
+<div class="card metric"><small>ចំណូល</small><b id="mIncome">$0</b></div>
+<div class="card metric"><small>ចំណាយ</small><b id="mExpense">$0</b></div>
+<div class="card metric"><small>ចំណេញ</small><b id="mProfit">$0</b></div>
+<div class="card metric"><small>Invoice</small><b id="mInvoices">0</b></div>
+</div>
+<div class="actions"><button class="btn" onclick="openCustomer()">+ អតិថិជន</button><button class="btn" onclick="openInvoice()">+ Invoice</button><button class="btn secondary" onclick="openExpense()">+ ចំណាយ</button></div>
+<div class="card"><h3>Invoice ថ្មីៗ</h3><div id="recent"></div></div>
+</section>
+
+<section id="customers" class="page">
+<h2>អតិថិជន</h2><button class="btn" onclick="openCustomer()">+ បន្ថែមអតិថិជន</button>
+<input class="search" placeholder="ស្វែងរកឈ្មោះ / លេខទូរស័ព្ទ" oninput="renderCustomers(this.value)">
+<div class="tablewrap"><table><thead><tr><th>អតិថិជន</th><th>ទូរស័ព្ទ</th><th>អាសយដ្ឋាន</th><th>សកម្មភាព</th></tr></thead><tbody id="customerRows"></tbody></table></div>
+</section>
+
+<section id="vehicles" class="page">
+<h2>រថយន្ត</h2><button class="btn" onclick="openVehicle()">+ បន្ថែមរថយន្ត</button>
+<input class="search" placeholder="ស្វែងរកផ្លាកលេខ / ម៉ាក / ម៉ូដែល" oninput="renderVehicles(this.value)">
+<div class="tablewrap"><table><thead><tr><th>ផ្លាកលេខ</th><th>រថយន្ត</th><th>ឆ្នាំ</th><th>ម្ចាស់</th><th>VIN</th><th>សកម្មភាព</th></tr></thead><tbody id="vehicleRows"></tbody></table></div>
+</section>
+
+<section id="stock" class="page">
+<h2>Stock / គ្រឿងបន្លាស់</h2><button class="btn" onclick="openPart()">+ បន្ថែមគ្រឿង</button> <button class="btn green" onclick="openStockIn()">+ បញ្ចូលស្តុក</button>
+<input class="search" placeholder="ស្វែងរកគ្រឿង..." oninput="renderStock(this.value)">
+<div class="tablewrap"><table><thead><tr><th>គ្រឿង</th><th>ប្រភេទ</th><th>ចំនួន</th><th>ទិញ</th><th>លក់</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead><tbody id="stockRows"></tbody></table></div>
+<h3 style="margin-top:20px">Stock Movement / ប្រវត្តិចូល-ចេញ</h3>
+<div class="tablewrap"><table><thead><tr><th>កាលបរិច្ឆេទ</th><th>គ្រឿង</th><th>ប្រភេទ</th><th>ចំនួន</th><th>Reference</th><th>Note</th></tr></thead><tbody id="movementRows"></tbody></table></div>
+</section>
+
+<section id="invoices" class="page">
+<h2>Invoice</h2><button class="btn" onclick="openInvoice()">+ បង្កើត Invoice</button>
+<div class="tablewrap"><table><thead><tr><th>លេខ</th><th>អតិថិជន</th><th>កាលបរិច្ឆេទ</th><th>សរុប</th><th></th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
+</section>
+
+<section id="finance" class="page">
+<h2>ចំណូល / ចំណាយ / ចំណេញ</h2>
+<div class="grid"><div class="card metric"><small>ចំណូលសរុប</small><b id="fIncome">$0</b></div><div class="card metric"><small>ចំណាយសរុប</small><b id="fExpense">$0</b></div><div class="card metric"><small>Profit</small><b id="fProfit">$0</b></div><div class="card metric"><small>ប្រតិបត្តិការ</small><b id="fCount">0</b></div></div>
+<div class="actions"><button class="btn" onclick="openExpense()">+ បញ្ចូលចំណាយ</button></div>
+<div class="tablewrap"><table><thead><tr><th>ប្រភេទ</th><th>បរិយាយ</th><th>ចំនួន</th><th>កាលបរិច្ឆេទ</th><th>សកម្មភាព</th></tr></thead><tbody id="expenseRows"></tbody></table></div>
+</section>
+</main>
+<nav>
+<button class="active" onclick="showPage('dashboard',this)">🏠<br>Home</button>
+<button onclick="showPage('customers',this)">👤<br>អតិថិជន</button>
+<button onclick="showPage('vehicles',this)">🚗<br>រថយន្ត</button>
+<button onclick="showPage('stock',this)">📦<br>Stock</button>
+<button onclick="showPage('invoices',this)">🧾<br>Invoice</button>
+<button onclick="showPage('finance',this)">📊<br>Report</button>
+</nav>
+<div id="modal" class="modal"><div class="sheet"><div class="sheethead"><h3 id="modalTitle"></h3><button class="btn secondary" onclick="closeModal()">បិទ</button></div><div id="modalBody"></div></div></div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ewxleopbmjhrtzrdstqc.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ey8dxn8U279h10yNPnHxrw_XPHQulSp';
+const sb = (window.supabase && typeof window.supabase.createClient === 'function') ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
+const $ = id => document.getElementById(id);
+
+const money=n=>'$'+Number(n||0).toFixed(2);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const errText=e=>e?.message||e?.error_description||'មានបញ្ហា។ សូមពិនិត្យ Internet និង Database/RLS.';
+function showErr(msg){const e=$("loginErr");e.textContent=msg;e.style.display="block";}
+function clearErr(){const e=$("loginErr");if(e)e.style.display="none";}
+
+async function login(){
+  clearErr();
+  const email=$("loginEmail").value.trim();
+  const password=$("loginPassword").value;
+  if(!email||!password){showErr("សូមបញ្ចូល Email និង Password");return;}
+  if(!sb){showErr("មិនអាចភ្ជាប់ Supabase បានទេ។ សូមពិនិត្យ Internet ហើយបើក App តាម start_app.bat");return;}
+  const btn=document.querySelector("#loginView button.btn");
+  if(btn){btn.disabled=true;btn.textContent="កំពុងចូល...";}
+  try{
+    const result=await sb.auth.signInWithPassword({email,password});
+    if(result.error)showErr(errText(result.error));
+  }catch(e){showErr(errText(e));}
+  finally{if(btn){btn.disabled=false;btn.textContent="ចូលប្រើ App";}}
+}
+async function logout(){if(sb)await sb.auth.signOut();}
+
+if(sb){
+  sb.auth.onAuthStateChange((event,session)=>{
+    const lv=$("loginView"),av=$("appView"),ue=$("userEmail");
+    if(session){lv.style.display="none";av.style.display="block";ue.textContent=session.user.email||"";renderAll();}
+    else{lv.style.display="flex";av.style.display="none";}
+  });
+  sb.auth.getSession().then(({data})=>{
+    if(data.session){$("loginView").style.display="none";$("appView").style.display="block";$("userEmail").textContent=data.session.user.email||"";renderAll();}
+  });
+}else{
+  showErr("Supabase library មិនបានផ្ទុក។ សូមពិនិត្យ Internet ហើយបើក App តាម start_app.bat");
+}
+
+function showPage(id,el){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));el.classList.add('active');renderAll()}
+function openModal(title,body){modalTitle.textContent=title;modalBody.innerHTML=body;modal.classList.add('show')}
+function closeModal(){modal.classList.remove('show')}
+
+async function getCustomers(){const {data,error}=await sb.from('customers').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getVehicles(){const {data,error}=await sb.from('vehicles').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getParts(){const {data,error}=await sb.from('parts').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getInvoices(){const {data,error}=await sb.from('invoices').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getExpenses(){const {data,error}=await sb.from('expenses').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getPayments(){const {data,error}=await sb.from('payments').select('*').order('paid_at',{ascending:false});if(error)throw error;return data||[]}
+
+function openCustomer(data=null){
+ const d=data||{};
+ openModal(data?'កែអតិថិជន':'បន្ថែមអតិថិជន',`<div class="formgrid">
+<div class="field"><label>ឈ្មោះ *</label><input id="cname" value="${esc(d.name||'')}"></div><div class="field"><label>លេខទូរស័ព្ទ</label><input id="cphone" value="${esc(d.phone||'')}"></div>
+<div class="field"><label>អាសយដ្ឋាន</label><input id="caddress" value="${esc(d.address||'')}"></div><div class="field"><label>កំណត់ចំណាំ</label><input id="cnotes" value="${esc(d.notes||'')}"></div>
+</div><div class="actions"><button class="btn green" onclick="${data?`updateCustomer('${d.id}')`:'addCustomer()'}">រក្សាទុក</button></div>`)
+}
+async function addCustomer(){try{if(!cname.value.trim())return alert('សូមបញ្ចូលឈ្មោះ');const {error}=await sb.from('customers').insert({name:cname.value.trim(),phone:cphone.value.trim(),address:caddress.value.trim(),notes:cnotes.value.trim()});if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function updateCustomer(id){try{if(!cname.value.trim())return alert('សូមបញ្ចូលឈ្មោះ');const {error}=await sb.from('customers').update({name:cname.value.trim(),phone:cphone.value.trim(),address:caddress.value.trim(),notes:cnotes.value.trim()}).eq('id',id);if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function deleteCustomer(id){try{if(!confirm('តើអ្នកពិតជាចង់លុបអតិថិជននេះមែនទេ?'))return;const [{data:vs,error:ve},{data:is,error:ie}]=await Promise.all([sb.from('vehicles').select('id').eq('customer_id',id),sb.from('invoices').select('id').eq('customer_id',id)]);if(ve)throw ve;if(ie)throw ie;if((vs||[]).length||(is||[]).length)return alert('មិនអាចលុបបានទេ៖ អតិថិជននេះមានរថយន្ត ឬ Invoice ភ្ជាប់រួច។ សូមលុបទិន្នន័យដែលពាក់ព័ន្ធជាមុនសិន។');const {error}=await sb.from('customers').delete().eq('id',id);if(error)throw error;renderAll()}catch(e){alert(errText(e))}}
+async function renderCustomers(q=''){try{const data=await getCustomers();const rows=data.filter(c=>((c.name||'')+' '+(c.phone||'')+' '+(c.address||'')).toLowerCase().includes(q.toLowerCase())).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.phone||'')}</td><td>${esc(c.address||'')}</td><td><button class="btn secondary" onclick="openCustomerDetail('${c.id}')">មើល</button> <button class="btn secondary" onclick='openCustomer(${JSON.stringify(c).replace(/'/g,"&#039;")})'>កែ</button> <button class="btn danger" onclick="deleteCustomer('${c.id}')">លុប</button></td></tr>`).join('');customerRows.innerHTML=rows||'<tr><td colspan="4">មិនទាន់មានទិន្នន័យ</td></tr>'}catch(e){customerRows.innerHTML='<tr><td colspan="4">'+esc(errText(e))+'</td></tr>'}}
+async function openCustomerDetail(id){try{const {data,error}=await sb.from('customers').select('*').eq('id',id).single();if(error)throw error;openModal(data.name,`<p>ទូរស័ព្ទ: ${esc(data.phone||'—')}<br>អាសយដ្ឋាន: ${esc(data.address||'—')}<br>ចំណាំ: ${esc(data.notes||'—')}</p><div class="actions"><button class="btn" onclick='openCustomer(${JSON.stringify(data).replace(/'/g,"&#039;")})'>✏️ កែ</button><button class="btn danger" onclick="deleteCustomer('${data.id}')">🗑️ លុប</button></div>`)}catch(e){alert(errText(e))}}
+
+async function openVehicle(data=null){const cs=await getCustomers();const opts=cs.map(c=>`<option value="${c.id}" ${String(data?.customer_id||'')===String(c.id)?'selected':''}>${esc(c.name)}</option>`).join('');openModal(data?'កែរថយន្ត':'បន្ថែមរថយន្ត',`<div class="formgrid"><div class="field"><label>ម្ចាស់ *</label><select id="vcustomer">${opts}</select></div><div class="field"><label>ផ្លាកលេខ *</label><input id="vplate" value="${esc(data?.plate_number||'')}"></div><div class="field"><label>ម៉ាក</label><input id="vmake" placeholder="Toyota" value="${esc(data?.make||'')}"></div><div class="field"><label>ម៉ូដែល</label><input id="vmodel" placeholder="Highlander" value="${esc(data?.model||'')}"></div><div class="field"><label>ឆ្នាំ</label><input id="vyear" type="number" value="${esc(data?.year||'')}"></div><div class="field"><label>VIN</label><input id="vvin" value="${esc(data?.vin||'')}"></div></div><div class="actions"><button class="btn green" onclick="${data?`updateVehicle('${data.id}')`:'addVehicle()'}">រក្សាទុក</button></div>`)}
+async function addVehicle(){try{if(!vplate.value.trim())return alert('សូមបញ្ចូលផ្លាកលេខ');const {error}=await sb.from('vehicles').insert({customer_id:vcustomer.value,plate_number:vplate.value.trim(),make:vmake.value.trim(),model:vmodel.value.trim(),year:vyear.value?Number(vyear.value):null,vin:vvin.value.trim()});if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function updateVehicle(id){try{if(!vplate.value.trim())return alert('សូមបញ្ចូលផ្លាកលេខ');const {error}=await sb.from('vehicles').update({customer_id:vcustomer.value,plate_number:vplate.value.trim(),make:vmake.value.trim(),model:vmodel.value.trim(),year:vyear.value?Number(vyear.value):null,vin:vvin.value.trim()}).eq('id',id);if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function deleteVehicle(id){try{if(!confirm('តើអ្នកពិតជាចង់លុបរថយន្តនេះមែនទេ?'))return;const {data:is,error:ie}=await sb.from('invoices').select('id').eq('vehicle_id',id);if(ie)throw ie;if((is||[]).length)return alert('មិនអាចលុបបានទេ៖ រថយន្តនេះមាន Invoice ភ្ជាប់រួច។');const {error}=await sb.from('vehicles').delete().eq('id',id);if(error)throw error;renderAll()}catch(e){alert(errText(e))}}
+async function renderVehicles(q=''){try{const [vs,cs]=await Promise.all([getVehicles(),getCustomers()]);const cm=Object.fromEntries(cs.map(c=>[c.id,c.name]));const rows=vs.filter(v=>((v.plate_number||'')+' '+(v.make||'')+' '+(v.model||'')).toLowerCase().includes(q.toLowerCase())).map(v=>`<tr><td>${esc(v.plate_number||'')}</td><td>${esc(v.make||'')} ${esc(v.model||'')}</td><td>${esc(v.year||'')}</td><td>${esc(cm[v.customer_id]||'—')}</td><td>${esc(v.vin||'')}</td><td><button class="btn secondary" onclick='openVehicle(${JSON.stringify(v).replace(/'/g,"&#039;")})'>កែ</button> <button class="btn danger" onclick="deleteVehicle('${v.id}')">លុប</button></td></tr>`).join('');vehicleRows.innerHTML=rows||'<tr><td colspan="6">មិនទាន់មានទិន្នន័យ</td></tr>'}catch(e){vehicleRows.innerHTML='<tr><td colspan="6">'+esc(errText(e))+'</td></tr>'}}
+
+function openPart(data=null){openModal(data?'កែគ្រឿងបន្លាស់':'បន្ថែមគ្រឿងបន្លាស់',`<div class="formgrid"><div class="field"><label>ឈ្មោះគ្រឿង *</label><input id="pname" value="${esc(data?.name||'')}"></div><div class="field"><label>SKU</label><input id="psku" value="${esc(data?.sku||'')}"></div><div class="field"><label>ប្រភេទ</label><input id="pcategory" placeholder="LPG / Engine / A/C..." value="${esc(data?.category||'')}"></div><div class="field"><label>ចំនួន</label><input id="pqty" type="number" value="${esc(data?.quantity??1)}"></div><div class="field"><label>តម្លៃទិញ</label><input id="pcost" type="number" step=".01" value="${esc(data?.cost_price??0)}"></div><div class="field"><label>តម្លៃលក់</label><input id="psell" type="number" step=".01" value="${esc(data?.selling_price??0)}"></div><div class="field"><label>Stock Alert ក្រោម</label><input id="pmin" type="number" value="${esc(data?.min_stock??2)}"></div></div><div class="actions"><button class="btn green" onclick="${data?`updatePart('${data.id}')`:'addPart()'}">រក្សាទុក</button></div>`)}
+async function addPart(){try{if(!pname.value.trim())return alert('សូមបញ្ចូលឈ្មោះគ្រឿង');const {error}=await sb.from('parts').insert({name:pname.value.trim(),sku:psku.value.trim(),category:pcategory.value.trim(),quantity:Number(pqty.value||0),cost_price:Number(pcost.value||0),selling_price:Number(psell.value||0),min_stock:Number(pmin.value||0)});if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function updatePart(id){try{if(!pname.value.trim())return alert('សូមបញ្ចូលឈ្មោះគ្រឿង');const {error}=await sb.from('parts').update({name:pname.value.trim(),sku:psku.value.trim(),category:pcategory.value.trim(),quantity:Number(pqty.value||0),cost_price:Number(pcost.value||0),selling_price:Number(psell.value||0),min_stock:Number(pmin.value||0)}).eq('id',id);if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+function openStockIn(){
+  getParts().then(parts=>{
+    const opts=(parts||[]).map(p=>`<option value="${p.id}">${esc(p.name)} — ស្តុក ${Number(p.quantity||0)}</option>`).join('');
+    openModal('បញ្ចូលស្តុក / Stock In',`<div class="formgrid">
+      <div class="field"><label>ជ្រើសគ្រឿង *</label><select id="sinpart"><option value="">— ជ្រើសគ្រឿង —</option>${opts}</select></div>
+      <div class="field"><label>ចំនួនចូល *</label><input id="sinqty" type="number" min="0.01" step=".01" value="1"></div>
+      <div class="field"><label>តម្លៃទិញ / ឯកតា</label><input id="sincost" type="number" min="0" step=".01" placeholder="ទុកទទេ ប្រសិនបើមិនប្តូរ"></div>
+      <div class="field"><label>ចំណាំ</label><input id="sinnote" placeholder="ឧ. ទិញពីអ្នកផ្គត់ផ្គង់"></div>
+    </div><div class="actions"><button class="btn green" onclick="addStockIn()">រក្សាទុក Stock In</button></div>`);
+  }).catch(e=>alert(errText(e)));
+}
+async function addStockIn(){
+  try{
+    const partId=sinpart.value, qty=Number(sinqty.value||0);
+    if(!partId||qty<=0)return alert('សូមជ្រើសគ្រឿង និងបញ្ចូលចំនួនចូលឱ្យត្រឹមត្រូវ');
+    const {data:p,error:pe}=await sb.from('parts').select('*').eq('id',partId).single();
+    if(pe)throw pe;
+    const oldQty=Number(p.quantity||0), newQty=oldQty+qty;
+    const costRaw=sincost.value.trim();
+    const update={quantity:newQty};
+    if(costRaw!=='') update.cost_price=Number(costRaw);
+    const {error:ue}=await sb.from('parts').update(update).eq('id',partId);
+    if(ue)throw ue;
+    const {error:me}=await sb.from('stock_movements').insert({part_id:Number(partId),movement_type:'in',quantity:qty,reference_type:'stock_in',note:sinnote.value.trim()||'Stock In'});
+    if(me){await sb.from('parts').update({quantity:oldQty}).eq('id',partId);throw me;}
+    closeModal();await renderAll();alert(`បញ្ចូលស្តុកបានជោគជ័យ៖ ${p.name} + ${qty}`);
+  }catch(e){alert(errText(e))}
+}
+
+async function deletePart(id){try{if(!confirm('តើអ្នកពិតជាចង់លុបគ្រឿងបន្លាស់នេះមែនទេ?'))return;const {error}=await sb.from('parts').delete().eq('id',id);if(error)throw error;renderAll()}catch(e){alert(errText(e))}}
+async function renderStock(q=''){try{const data=await getParts();const rows=data.filter(p=>(p.name||'').toLowerCase().includes(q.toLowerCase())).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td>${p.quantity??0}</td><td>${money(p.cost_price)}</td><td>${money(p.selling_price)}</td><td><span class="badge ${(p.quantity??0)<=Number(p.min_stock??0)?'stocklow':''}">${(p.quantity??0)<=Number(p.min_stock??0)?'ជិតអស់':'មានស្តុក'}</span></td><td><button class="btn secondary" onclick='openPart(${JSON.stringify(p).replace(/'/g,"&#039;")})'>កែ</button> <button class="btn danger" onclick="deletePart('${p.id}')">លុប</button></td></tr>`).join('');stockRows.innerHTML=rows||'<tr><td colspan="7">មិនទាន់មានទិន្នន័យ</td></tr>'}catch(e){stockRows.innerHTML='<tr><td colspan="7">'+esc(errText(e))+'</td></tr>'}}
+
+let invoiceItems=[];
+async function openInvoice(){
+ const [cs,vs,ps]=await Promise.all([getCustomers(),getVehicles(),getParts()]);
+ window._invoiceParts=ps; invoiceItems=[];
+ const opts=cs.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.phone||'')}</option>`).join('');
+ const vopts=vs.map(v=>`<option value="${v.id}">${esc(v.plate_number||'')} — ${esc(v.make||'')} ${esc(v.model||'')}</option>`).join('');
+ openModal('បង្កើត Invoice',`<div class="formgrid"><div class="field"><label>អតិថិជន *</label><select id="icustomer">${opts}</select></div><div class="field"><label>រថយន្ត</label><select id="ivehicle"><option value="">— មិនកំណត់ —</option>${vopts}</select></div><div class="field"><label>លេខ Invoice</label><input id="ino" placeholder="INV-0001"></div><div class="field"><label>បរិយាយសរុប</label><input id="iservice" placeholder="Maintenance / LPG Installation"></div></div><div class="card" style="margin-top:12px;padding:12px"><h4 style="margin:0 0 8px">Items / គ្រឿង + សេវា + កម្លាំងពលកម្ម</h4><div id="invoiceItems"></div><div class="actions"><button class="btn secondary" onclick="addInvoiceItem('part')">+ គ្រឿងបន្លាស់</button><button class="btn secondary" onclick="addInvoiceItem('service')">+ សេវាកម្ម</button><button class="btn secondary" onclick="addInvoiceItem('labor')">+ កម្លាំងពលកម្ម</button></div></div><div class="formgrid" style="margin-top:10px"><div class="field"><label>Subtotal</label><input id="isubtotal" type="number" value="0" readonly></div><div class="field"><label>បញ្ចុះតម្លៃ</label><input id="idiscount" type="number" step=".01" value="0" oninput="updateInvoiceTotal()"></div><div class="field"><label>Total</label><input id="itotal" type="number" value="0" readonly></div><div class="field"><label>បង់ប្រាក់ភ្លាមៗ</label><input id="ipay" type="number" min="0" step=".01" value="0" placeholder="0.00"></div><div class="field"><label>វិធីបង់ប្រាក់</label><select id="ipayment_method"><option value="Cash">សាច់ប្រាក់ (Cash)</option><option value="ABA">ABA</option><option value="ACLEDA">ACLEDA</option><option value="Bank">ធនាគារ</option><option value="Other">ផ្សេងទៀត</option></select></div></div><div class="actions"><button class="btn green" onclick="addInvoice()">រក្សាទុក Invoice</button></div>`);
+ addInvoiceItem('service');
+}
+function addInvoiceItem(type){invoiceItems.push({type,part_id:'',description:'',quantity:1,unit_price:0});renderInvoiceItems();}
+function removeInvoiceItem(i){invoiceItems.splice(i,1);renderInvoiceItems();}
+function setInvoicePart(i,id){const p=(window._invoiceParts||[]).find(x=>String(x.id)===String(id));invoiceItems[i].part_id=id||'';invoiceItems[i].description=p?.name||'';invoiceItems[i].unit_price=Number(p?.selling_price||0);renderInvoiceItems();}
+function renderInvoiceItems(){const box=$('invoiceItems');if(!box)return;box.innerHTML=invoiceItems.map((it,i)=>{let control;if(it.type==='part'){const po=(window._invoiceParts||[]).map(p=>`<option value="${p.id}" ${String(it.part_id)===String(p.id)?'selected':''}>${esc(p.name)} — ${money(p.selling_price)}</option>`).join('');control=`<select onchange="setInvoicePart(${i},this.value)"><option value="">— ជ្រើសគ្រឿង —</option>${po}</select>`;}else{control=`<input placeholder="${it.type==='labor'?'Labor / កម្លាំងពលកម្ម':'ឧ. ប្តូរប្រេងម៉ាស៊ីន'}" value="${esc(it.description)}" oninput="invoiceItems[${i}].description=this.value">`;}return `<div class="card" style="padding:9px;margin:7px 0"><div class="formgrid"><div class="field"><label>${i+1}. ${it.type==='part'?'គ្រឿងបន្លាស់':it.type==='labor'?'កម្លាំងពលកម្ម':'សេវាកម្ម'}</label>${control}</div><div class="field"><label>ចំនួន</label><input type="number" min="0.01" step=".01" value="${it.quantity}" oninput="invoiceItems[${i}].quantity=Number(this.value||0);updateInvoiceTotal()"></div><div class="field"><label>តម្លៃ / ឯកតា</label><input type="number" min="0" step=".01" value="${it.unit_price}" oninput="invoiceItems[${i}].unit_price=Number(this.value||0);updateInvoiceTotal()"></div><div class="field"><button class="btn danger" type="button" onclick="removeInvoiceItem(${i})">លុប</button></div></div><div style="text-align:right;font-weight:700">${money(Number(it.quantity||0)*Number(it.unit_price||0))}</div></div>`;}).join('')||'<p class="muted">មិនទាន់មាន Item</p>';updateInvoiceTotal();}
+function updateInvoiceTotal(){const sub=invoiceItems.reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0),dis=Number($('idiscount')?.value||0);if($('isubtotal'))$('isubtotal').value=sub.toFixed(2);if($('itotal'))$('itotal').value=Math.max(0,sub-dis).toFixed(2);}
+async function getInvoiceStockMovements(invoiceId){
+  const {data,error}=await sb.from('stock_movements').select('*').eq('reference_type','invoice').eq('reference_id',invoiceId);
+  if(error)throw error;
+  return data||[];
+}
+
+function aggregatePartItems(items){
+  const map={};
+  (items||[]).filter(it=>it.part_id&&Number(it.quantity)>0).forEach(it=>{
+    const id=String(it.part_id);
+    map[id]=(map[id]||0)+Number(it.quantity);
+  });
+  return map;
+}
+
+async function restoreInvoiceStock(invoiceId){
+  const moves=await getInvoiceStockMovements(invoiceId);
+  if(!moves.length)return;
+  for(const m of moves){
+    const {data:p,error:pe}=await sb.from('parts').select('quantity').eq('id',m.part_id).single();
+    if(pe)throw pe;
+    const newQty=Number(p.quantity||0)+Number(m.quantity||0);
+    const {error:ue}=await sb.from('parts').update({quantity:newQty}).eq('id',m.part_id);
+    if(ue)throw ue;
+  }
+  const {error:de}=await sb.from('stock_movements').delete().eq('reference_type','invoice').eq('reference_id',invoiceId);
+  if(de)throw de;
+}
+
+async function applyInvoiceStock(invoiceId,items){
+  const needed=aggregatePartItems(items);
+  const ids=Object.keys(needed);
+  if(!ids.length)return;
+  const {data:parts,error}=await sb.from('parts').select('id,name,quantity').in('id',ids);
+  if(error)throw error;
+  const byId=Object.fromEntries((parts||[]).map(p=>[String(p.id),p]));
+  for(const id of ids){
+    const p=byId[id];
+    if(!p)throw new Error('រកមិនឃើញគ្រឿងបន្លាស់ ID '+id);
+    const have=Number(p.quantity||0), need=Number(needed[id]||0);
+    if(need>have)throw new Error(`Stock មិនគ្រប់៖ ${p.name} មាន ${have} ប៉ុន្តែត្រូវការ ${need}`);
+  }
+  const done=[];
+  try{
+    for(const id of ids){
+      const p=byId[id], need=Number(needed[id]);
+      const {error:ue}=await sb.from('parts').update({quantity:Number(p.quantity||0)-need}).eq('id',p.id);
+      if(ue)throw ue;
+      const {error:me}=await sb.from('stock_movements').insert({part_id:p.id,movement_type:'out',quantity:need,reference_type:'invoice',reference_id:invoiceId,note:'Auto deduction from invoice'});
+      if(me)throw me;
+      done.push({part_id:p.id,quantity:need});
+    }
+  }catch(e){
+    for(const d of done){await sb.from('parts').select('quantity').eq('id',d.part_id).single().then(async r=>{if(r.data)await sb.from('parts').update({quantity:Number(r.data.quantity||0)+d.quantity}).eq('id',d.part_id)});}
+    await sb.from('stock_movements').delete().eq('reference_type','invoice').eq('reference_id',invoiceId);
+    throw e;
+  }
+}
+
+async function addInvoice(){try{
+  const valid=invoiceItems.filter(it=>Number(it.quantity)>0&&(it.type==='part'?it.part_id:it.description.trim()));
+  if(!valid.length)return alert('សូមបន្ថែមយ៉ាងហោចណាស់ 1 Item');
+  const subtotal=valid.reduce((s,it)=>s+Number(it.quantity)*Number(it.unit_price),0),discount=Number($('idiscount').value||0),total=Math.max(0,subtotal-discount);
+  const payAmount=Math.max(0,Number($('ipay')?.value||0)),payMethod=$('ipayment_method')?.value||'Cash';
+  if(payAmount>total)return alert('ចំនួនបង់ប្រាក់ មិនអាចលើស Total បានទេ');
+  let no=$('ino').value.trim();if(!no){const ex=await getInvoices();no='INV-'+String(ex.length+1).padStart(4,'0');}
+  const partValid=valid.filter(it=>it.type==='part'&&it.part_id);
+  const needed=aggregatePartItems(partValid), ids=Object.keys(needed);
+  if(ids.length){const {data:ps,error:se}=await sb.from('parts').select('id,name,quantity').in('id',ids);if(se)throw se;const byId=Object.fromEntries((ps||[]).map(p=>[String(p.id),p]));for(const id of ids){const p=byId[id],need=Number(needed[id]);if(!p)throw new Error('រកមិនឃើញគ្រឿងបន្លាស់');if(need>Number(p.quantity||0))throw new Error(`Stock មិនគ្រប់៖ ${p.name} មាន ${Number(p.quantity||0)} ប៉ុន្តែត្រូវការ ${need}`);}}
+  const {data:inv,error}=await sb.from('invoices').insert({invoice_number:no,customer_id:$('icustomer').value,vehicle_id:$('ivehicle').value||null,subtotal,discount,total}).select().single();if(error)throw error;
+  const rows=valid.map(it=>({invoice_id:inv.id,part_id:it.type==='part'?Number(it.part_id):null,description:it.description.trim(),quantity:Number(it.quantity),unit_price:Number(it.unit_price),total:Number(it.quantity)*Number(it.unit_price)}));
+  const {error:ie}=await sb.from('invoice_items').insert(rows);if(ie){await sb.from('invoices').delete().eq('id',inv.id);throw ie;}
+  try{await applyInvoiceStock(inv.id,valid);}catch(stockErr){await sb.from('invoice_items').delete().eq('invoice_id',inv.id);await sb.from('invoices').delete().eq('id',inv.id);throw stockErr;}
+  if(payAmount>0){const {error:pe}=await sb.from('payments').insert({invoice_id:inv.id,amount:payAmount,payment_method:payMethod,paid_at:new Date().toISOString()});if(pe){await restoreInvoiceStock(inv.id);await sb.from('invoice_items').delete().eq('invoice_id',inv.id);await sb.from('invoices').delete().eq('id',inv.id);throw pe;}}
+  closeModal();renderAll();
+}catch(e){alert(errText(e))}}
+async function openPayment(id){try{const [{data:i,error},{data:ps}]=await Promise.all([sb.from('invoices').select('*').eq('id',id).single(),sb.from('payments').select('*').eq('invoice_id',id).order('paid_at',{ascending:false})]);if(error)throw error;const paid=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0),balance=Math.max(0,Number(i.total||0)-paid);const history=(ps||[]).map(p=>`<div class="row"><span>${money(p.amount)} • ${esc(p.payment_method||'')} • ${p.paid_at?new Date(p.paid_at).toLocaleString('km-KH'):''}</span><button class="btn danger" onclick="deletePayment('${p.id}','${id}')">លុប</button></div>`).join('')||'<p class="muted">មិនទាន់មាន Payment</p>';openModal('បង់ប្រាក់ Invoice '+esc(i.invoice_number||''),`<div class="card" style="padding:12px"><div><b>Total:</b> ${money(i.total)}</div><div><b>បានបង់:</b> ${money(paid)}</div><div><b>នៅសល់:</b> ${money(balance)}</div></div><div class="formgrid" style="margin-top:12px"><div class="field"><label>ចំនួនបង់</label><input id="payAmount" type="number" min="0" max="${balance}" step=".01" value="${balance.toFixed(2)}"></div><div class="field"><label>វិធីបង់ប្រាក់</label><select id="payMethod"><option value="Cash">សាច់ប្រាក់ (Cash)</option><option value="ABA">ABA</option><option value="ACLEDA">ACLEDA</option><option value="Bank">ធនាគារ</option><option value="Other">ផ្សេងទៀត</option></select></div></div><div class="actions"><button class="btn green" onclick="savePayment('${id}',${balance})">រក្សាទុកការបង់ប្រាក់</button></div><h4>ប្រវត្តិការបង់ប្រាក់</h4>${history}`)}catch(e){alert(errText(e))}}
+async function savePayment(id,balance){try{const amount=Number($('payAmount')?.value||0),method=$('payMethod')?.value||'Cash';if(amount<=0)return alert('សូមបញ្ចូលចំនួនបង់ប្រាក់');if(amount>balance)return alert('ចំនួនបង់ប្រាក់លើសចំនួននៅសល់');const {error}=await sb.from('payments').insert({invoice_id:id,amount,payment_method:method,paid_at:new Date().toISOString()});if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function deletePayment(paymentId,invoiceId){try{if(!confirm('តើអ្នកពិតជាចង់លុបការបង់ប្រាក់នេះមែនទេ?'))return;const {error}=await sb.from('payments').delete().eq('id',paymentId);if(error)throw error;await openPayment(invoiceId);renderAll()}catch(e){alert(errText(e))}}
+async function openEditInvoice(id){try{const [{data:i,error},{data:items,error:ie},cs,vs,ps]=await Promise.all([sb.from('invoices').select('*').eq('id',id).single(),sb.from('invoice_items').select('*').eq('invoice_id',id).order('id'),getCustomers(),getVehicles(),getParts()]);if(error)throw error;if(ie)throw ie;window._editInvoiceId=id;window._editParts=ps||[];window._editItems=(items||[]).map(x=>({part_id:x.part_id||'',description:x.description||'',quantity:Number(x.quantity||0),unit_price:Number(x.unit_price||0),type:x.part_id?'part':'service'}));const opts=cs.map(c=>`<option value="${c.id}" ${String(c.id)===String(i.customer_id)?'selected':''}>${esc(c.name)} — ${esc(c.phone||'')}</option>`).join('');const vopts=vs.map(v=>`<option value="${v.id}" ${String(v.id)===String(i.vehicle_id)?'selected':''}>${esc(v.plate_number||'')} — ${esc(v.make||'')} ${esc(v.model||'')}</option>`).join('');openModal('កែ Invoice '+esc(i.invoice_number||''),`<div class="formgrid"><div class="field"><label>អតិថិជន *</label><select id="eicustomer">${opts}</select></div><div class="field"><label>រថយន្ត</label><select id="eivehicle"><option value="">— មិនកំណត់ —</option>${vopts}</select></div><div class="field"><label>លេខ Invoice</label><input id="eino" value="${esc(i.invoice_number||'')}"></div><div class="field"><label>បញ្ចុះតម្លៃ</label><input id="eidiscount" type="number" step=".01" value="${esc(i.discount??0)}" oninput="updateEditInvoiceTotal()"></div></div><div class="card" style="margin-top:12px;padding:12px"><h4 style="margin:0 0 8px">Items</h4><div id="editInvoiceItems"></div><div class="actions"><button class="btn secondary" onclick="addEditItem()">+ បន្ថែម Item</button></div></div><div class="formgrid" style="margin-top:10px"><div class="field"><label>Subtotal</label><input id="eisubtotal" readonly></div><div class="field"><label>Total</label><input id="eitotal" readonly></div></div><div class="actions"><button class="btn green" onclick="saveEditInvoice('${id}')">រក្សាទុកការកែ</button></div>`);renderEditInvoiceItems();}catch(e){alert(errText(e))}}
+function addEditItem(){window._editItems.push({type:'part',part_id:'',description:'',quantity:1,unit_price:0});renderEditInvoiceItems()}
+function removeEditItem(i){window._editItems.splice(i,1);renderEditInvoiceItems()}
+function setEditType(i,type){const it=window._editItems[i];it.type=type; if(type!=='part') it.part_id=''; if(type==='part'){it.description='';it.unit_price=0;} renderEditInvoiceItems()}
+function setEditPart(i,id){const p=(window._editParts||[]).find(x=>String(x.id)===String(id));window._editItems[i].part_id=id||'';window._editItems[i].type=id?'part':'service';window._editItems[i].description=p?.name||'';window._editItems[i].unit_price=Number(p?.selling_price||0);renderEditInvoiceItems()}
+function renderEditInvoiceItems(){const box=$('editInvoiceItems');if(!box)return;box.innerHTML=(window._editItems||[]).map((it,i)=>{const type=it.type||'service';const isPart=type==='part';let control;if(isPart){control=`<select onchange="setEditPart(${i},this.value)"><option value="">— ជ្រើសគ្រឿង —</option>${(window._editParts||[]).map(p=>`<option value="${p.id}" ${String(it.part_id)===String(p.id)?'selected':''}>${esc(p.name)} — Stock ${Number(p.quantity||0)} — ${money(p.selling_price)}</option>`).join('')}</select>`;}else{control=`<input placeholder="${type==='labor'?'Labor / កម្លាំងពលកម្ម':'បរិយាយសេវាកម្ម'}" value="${esc(it.description)}" oninput="window._editItems[${i}].description=this.value">`;}return `<div class="card" style="padding:9px;margin:7px 0"><div class="formgrid"><div class="field"><label>${i+1}. ប្រភេទ</label><select onchange="setEditType(${i},this.value)"><option value="part" ${type==='part'?'selected':''}>គ្រឿងបន្លាស់</option><option value="service" ${type==='service'?'selected':''}>សេវាកម្ម</option><option value="labor" ${type==='labor'?'selected':''}>កម្លាំងពលកម្ម</option></select></div><div class="field"><label>${isPart?'ជ្រើសគ្រឿង':type==='labor'?'បរិយាយ':'បរិយាយ'}</label>${control}</div><div class="field"><label>ចំនួន</label><input type="number" min="0.01" step=".01" value="${it.quantity}" oninput="window._editItems[${i}].quantity=Number(this.value||0);updateEditInvoiceTotal()"></div><div class="field"><label>តម្លៃ / ឯកតា</label><input type="number" min="0" step=".01" value="${it.unit_price}" oninput="window._editItems[${i}].unit_price=Number(this.value||0);updateEditInvoiceTotal()"></div><div class="field"><button class="btn danger" type="button" onclick="removeEditItem(${i})">លុប</button></div></div><div style="text-align:right;font-weight:700">${money(Number(it.quantity||0)*Number(it.unit_price||0))}</div></div>`;}).join('')||'<p class="muted">មិនទាន់មាន Item</p>';updateEditInvoiceTotal()}
+function updateEditInvoiceTotal(){const sub=(window._editItems||[]).reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0),dis=Number($('eidiscount')?.value||0);if($('eisubtotal'))$('eisubtotal').value=sub.toFixed(2);if($('eitotal'))$('eitotal').value=Math.max(0,sub-dis).toFixed(2)}
+async function saveEditInvoice(id){try{
+  const items=(window._editItems||[]).filter(x=>Number(x.quantity)>0&&((x.part_id&&x.type==='part')||String(x.description||'').trim()));
+  if(!items.length)return alert('សូមមានយ៉ាងហោចណាស់ 1 Item');
+  const subtotal=items.reduce((s,it)=>s+Number(it.quantity)*Number(it.unit_price),0),discount=Math.max(0,Number($('eidiscount').value||0)),total=Math.max(0,subtotal-discount);
+  const [{data:oldInvoice,error:oldInvoiceErr},{data:oldItems,error:oldItemsErr},{data:ps,error:pe}]=await Promise.all([
+    sb.from('invoices').select('*').eq('id',id).single(),
+    sb.from('invoice_items').select('*').eq('invoice_id',id).order('id'),
+    sb.from('payments').select('amount').eq('invoice_id',id)
+  ]);
+  if(oldInvoiceErr)throw oldInvoiceErr;if(oldItemsErr)throw oldItemsErr;if(pe)throw pe;
+  const paid=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  if(total<paid)return alert(`Total ថ្មី ${money(total)} តិចជាងចំនួនបានបង់ ${money(paid)} មិនអាចកែបានទេ។`);
+  const oldMoves=await getInvoiceStockMovements(id);
+  await restoreInvoiceStock(id);
+  try{
+    const {error}=await sb.from('invoices').update({invoice_number:$('eino').value.trim(),customer_id:$('eicustomer').value,vehicle_id:$('eivehicle').value||null,subtotal,discount,total}).eq('id',id);if(error)throw error;
+    const {error:de}=await sb.from('invoice_items').delete().eq('invoice_id',id);if(de)throw de;
+    const rows=items.map(it=>({invoice_id:id,part_id:it.part_id?Number(it.part_id):null,description:String(it.description).trim(),quantity:Number(it.quantity),unit_price:Number(it.unit_price),total:Number(it.quantity)*Number(it.unit_price)}));
+    const {error:ie}=await sb.from('invoice_items').insert(rows);if(ie)throw ie;
+    await applyInvoiceStock(id,items);
+  }catch(e){
+    // Roll back invoice header/items and restore the old stock state.
+    try{
+      await sb.from('stock_movements').delete().eq('reference_type','invoice').eq('reference_id',id);
+      await sb.from('invoice_items').delete().eq('invoice_id',id);
+      if(oldItems?.length)await sb.from('invoice_items').insert(oldItems.map(x=>({invoice_id:id,part_id:x.part_id||null,description:x.description||'',quantity:Number(x.quantity||0),unit_price:Number(x.unit_price||0),total:Number(x.total||0)})));
+      await sb.from('invoices').update({invoice_number:oldInvoice.invoice_number,customer_id:oldInvoice.customer_id,vehicle_id:oldInvoice.vehicle_id,subtotal:oldInvoice.subtotal,discount:oldInvoice.discount,total:oldInvoice.total,payment_status:oldInvoice.payment_status}).eq('id',id);
+      if(oldMoves?.length){
+        for(const m of oldMoves){
+          const {data:p}=await sb.from('parts').select('quantity').eq('id',m.part_id).single();
+          if(p)await sb.from('parts').update({quantity:Number(p.quantity||0)+Number(m.quantity||0)}).eq('id',m.part_id);
+          await sb.from('stock_movements').insert({part_id:m.part_id,movement_type:'out',quantity:Number(m.quantity),reference_type:'invoice',reference_id:id,note:m.note||'Restored after invoice edit rollback'});
+        }
+      }
+    }catch(rollbackErr){console.error('Invoice edit rollback failed',rollbackErr)}
+    throw e;
+  }
+  closeModal();renderAll();
+}catch(e){alert(errText(e))}}
+async function deleteInvoice(id){try{const [{data:i,error:ie},{data:ps,error:pe}]=await Promise.all([sb.from('invoices').select('*').eq('id',id).single(),sb.from('payments').select('id,amount').eq('invoice_id',id)]);if(ie)throw ie;if(pe)throw pe;const paid=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0);const msg=paid>0?`Invoice ${i.invoice_number||''} មានការបង់ប្រាក់ ${money(paid)} រួច។
+
+តើអ្នកពិតជាចង់លុប Invoice និង Payment ទាំងអស់មែនទេ?`:`តើអ្នកពិតជាចង់លុប Invoice ${i.invoice_number||''} មែនទេ?`;if(!confirm(msg))return;await restoreInvoiceStock(id);const {error:pe2}=await sb.from('payments').delete().eq('invoice_id',id);if(pe2)throw pe2;const {error:ie2}=await sb.from('invoice_items').delete().eq('invoice_id',id);if(ie2)throw ie2;const {error:de}=await sb.from('invoices').delete().eq('id',id);if(de)throw de;renderAll()}catch(e){alert(errText(e))}}
+async function renderInvoices(){try{const [is,cs,ps]=await Promise.all([getInvoices(),getCustomers(),getPayments()]);const cm=Object.fromEntries(cs.map(c=>[c.id,c.name]));const paidMap={};(ps||[]).forEach(p=>paidMap[p.invoice_id]=(paidMap[p.invoice_id]||0)+Number(p.amount||0));const rows=is.map(i=>{const paid=paidMap[i.id]||0,balance=Math.max(0,Number(i.total||0)-paid);return `<tr><td>${esc(i.invoice_number||'')}</td><td>${esc(cm[i.customer_id]||'—')}</td><td>${i.created_at?new Date(i.created_at).toLocaleDateString('km-KH'):''}</td><td><b>${money(i.total)}</b><br><small>បង់ ${money(paid)} • នៅសល់ ${money(balance)}</small></td><td><button class="btn secondary" onclick="openPayment('${i.id}')">💵 បង់ប្រាក់</button> <button class="btn secondary" onclick="openEditInvoice('${i.id}')">✏️ កែ</button> <button class="btn secondary" onclick="printInvoice('${i.id}')">Print</button> <button class="btn danger" onclick="deleteInvoice('${i.id}')">🗑️ លុប</button></td></tr>`}).join('');invoiceRows.innerHTML=rows||'<tr><td colspan="5">មិនទាន់មាន Invoice</td></tr>'}catch(e){invoiceRows.innerHTML='<tr><td colspan="5">'+esc(errText(e))+'</td></tr>'}}
+async function printInvoice(id){try{const [{data:i,error},{data:items},{data:c}]=await Promise.all([sb.from('invoices').select('*').eq('id',id).single(),sb.from('invoice_items').select('*').eq('invoice_id',id),sb.from('customers').select('*').eq('id',document.querySelector(`[onclick=\"printInvoice('${id}')\"]`)?.dataset?.customerId||'').maybeSingle()]);if(error)throw error;let customer=c;if(!customer){const r=await sb.from('customers').select('*').eq('id',i.customer_id).single();customer=r.data;}const rows=(items||[]).map(x=>`<div class="row"><span>${esc(x.description||'')} × ${Number(x.quantity||0)}</span><span>${money(x.total)}</span></div>`).join('');const w=window.open('','_blank');w.document.write(`<html><head><title>${esc(i.invoice_number)}</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:auto}h1{color:#0b3b72}.row{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #ddd}.total{font-size:22px;font-weight:bold}</style></head><body><h1>V-D AUTO GAS</h1><p>096 97 12 418 • 0969712418 • 0976794921</p><hr><h2>INVOICE ${esc(i.invoice_number)}</h2><p>Customer: ${esc(customer?.name||'')}<br>Phone: ${esc(customer?.phone||'')}</p>${rows}<div class="row"><span>Subtotal</span><span>${money(i.subtotal)}</span></div><div class="row"><span>Discount</span><span>-${money(i.discount)}</span></div><div class="row total"><span>Total</span><span>${money(i.total)}</span></div><p>Payment: កំណត់នៅផ្នែក Payment</p><script>window.print()<\/script></body></html>`);w.document.close()}catch(e){alert(errText(e))}}
+
+function openExpense(data=null){openModal(data?'កែចំណាយ':'បញ្ចូលចំណាយ',`<div class="formgrid"><div class="field"><label>ប្រភេទ *</label><input id="etype" placeholder="ទិញគ្រឿង / ភ្លើង / ជួល..." value="${esc(data?.category||'')}"></div><div class="field"><label>បរិយាយ</label><input id="enote" value="${esc(data?.description||'')}"></div><div class="field"><label>ចំនួនទឹកប្រាក់ *</label><input id="eamount" type="number" step=".01" value="${esc(data?.amount??'')}"></div><div class="field"><label>កាលបរិច្ឆេទ</label><input id="edate" type="date" value="${esc(data?.expense_date||new Date().toISOString().slice(0,10))}"></div></div><div class="actions"><button class="btn green" onclick="${data?`updateExpense('${data.id}')`:'addExpense()'}">រក្សាទុក</button></div>`)}
+async function addExpense(){try{const amount=Number(eamount.value||0);if(!etype.value.trim()||!amount)return alert('សូមបញ្ចូលប្រភេទ និងចំនួនទឹកប្រាក់');const {error}=await sb.from('expenses').insert({category:etype.value.trim(),description:enote.value.trim(),amount,expense_date:edate.value||new Date().toISOString().slice(0,10)});if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function updateExpense(id){try{const amount=Number(eamount.value||0);if(!etype.value.trim()||!amount)return alert('សូមបញ្ចូលប្រភេទ និងចំនួនទឹកប្រាក់');const {error}=await sb.from('expenses').update({category:etype.value.trim(),description:enote.value.trim(),amount,expense_date:edate.value}).eq('id',id);if(error)throw error;closeModal();renderAll()}catch(e){alert(errText(e))}}
+async function deleteExpense(id){try{if(!confirm('តើអ្នកពិតជាចង់លុបចំណាយនេះមែនទេ?'))return;const {error}=await sb.from('expenses').delete().eq('id',id);if(error)throw error;renderAll()}catch(e){alert(errText(e))}}
+
+async function renderFinance(){try{const [is,es]=await Promise.all([getInvoices(),getExpenses()]);const income=is.reduce((s,i)=>s+Number(i.total||0),0),expense=es.reduce((s,e)=>s+Number(e.amount||0),0);fIncome.textContent=money(income);fExpense.textContent=money(expense);fProfit.textContent=money(income-expense);fCount.textContent=is.length+es.length;expenseRows.innerHTML=es.map(e=>`<tr><td>${esc(e.category||'')}</td><td>${esc(e.description||'')}</td><td>${money(e.amount)}</td><td>${e.expense_date||''}</td><td><button class="btn secondary" onclick='openExpense(${JSON.stringify(e).replace(/'/g,"&#039;")})'>កែ</button> <button class="btn danger" onclick="deleteExpense('${e.id}')">លុប</button></td></tr>`).join('')||'<tr><td colspan="5">មិនទាន់មានចំណាយ</td></tr>'}catch(e){expenseRows.innerHTML='<tr><td colspan="4">'+esc(errText(e))+'</td></tr>'}}
+async function renderStockMovements(){try{
+  const {data,error}=await sb.from('stock_movements').select('id,part_id,movement_type,quantity,reference_type,reference_id,note,created_at').order('id',{ascending:false}).limit(100);
+  if(error)throw error;
+  const parts=await getParts();const pm=Object.fromEntries((parts||[]).map(p=>[String(p.id),p.name]));
+  movementRows.innerHTML=(data||[]).map(m=>`<tr><td>${m.created_at?new Date(m.created_at).toLocaleString('km-KH'):''}</td><td>${esc(pm[String(m.part_id)]||('ID '+m.part_id))}</td><td><span class="badge ${m.movement_type==='out'?'stocklow':''}">${m.movement_type==='out'?'ចេញ':'ចូល'}</span></td><td>${Number(m.quantity||0)}</td><td>${esc(m.reference_type||'')} ${m.reference_id||''}</td><td>${esc(m.note||'')}</td></tr>`).join('')||'<tr><td colspan="6">មិនទាន់មាន Stock Movement</td></tr>';
+}catch(e){if(typeof movementRows!=='undefined')movementRows.innerHTML='<tr><td colspan="6">'+esc(errText(e))+'</td></tr>'}}
+
+async function renderDashboard(){try{const [is,es,cs]=await Promise.all([getInvoices(),getExpenses(),getCustomers()]);const income=is.reduce((s,i)=>s+Number(i.total||0),0),expense=es.reduce((s,e)=>s+Number(e.amount||0),0);mIncome.textContent=money(income);mExpense.textContent=money(expense);mProfit.textContent=money(income-expense);mInvoices.textContent=is.length;const cm=Object.fromEntries(cs.map(c=>[c.id,c.name]));recent.innerHTML=is.slice(0,5).map(i=>`<div class="row"><span>${esc(cm[i.customer_id]||'—')} • Invoice ${esc(i.invoice_number||'')}</span><b>${money(i.total)}</b></div>`).join('')||'<p class="muted">មិនទាន់មាន Invoice</p>'}catch(e){recent.innerHTML='<p class="muted">'+esc(errText(e))+'</p>'}}
+async function renderAll(){await Promise.all([renderDashboard(),renderCustomers(),renderVehicles(),renderStock(),renderStockMovements(),renderInvoices(),renderFinance()])}
+</script>
+</body></html>
